@@ -1,1 +1,6 @@
 streamlit
+pandas
+pyttsx3
+requests
+Pillow
+SpeechRecognition
