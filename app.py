@@ -5,360 +5,340 @@ import pyttsx3
 import requests
 from PIL import Image
 import speech_recognition as sr
+import json
+from transformers import pipeline
 
 # === Configuration ===
 DATA_FOLDER = "Data"
 MASTERDATA_FOLDER = "MasterData"
-HF_API_URL = "https://api-inference.huggingface.co/models/Jayanth2002/dinov2-base-finetuned-SkinDisease"
-HF_API_KEY = "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"
+HF_API_URL = "https://api-inference.huggingface.co/models/google/derm-foundation"
+CHATBOT_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
+HF_API_KEY = "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" # Use st.secrets or environment variable for production
+
+# --- Set Streamlit Theme and Custom CSS ---
+st.set_page_config(
+    page_title="Dhanwantari",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Use Markdown for a dynamic and modern look
+st.markdown("""
+<style>
+    /* Use Poppins from Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+    
+    html, body, [class*="st-"] {
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    /* Overall Page Styling */
+    .stApp {
+        background-color: #FFFFFF; /* Light sky blue background */
+        color: #000000;
+    }
+
+    /* Streamlit's Main Containers */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+    
+    /* Customizing the Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #f8f9fa;
+        border-right: 2px solid #e0e6ed;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+    }
+    
+    /* Header (Main Title) */
+    h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    
+    /* Subheadings */
+    h2, h3 {
+        color: #007bff;
+        font-weight: 600;
+    }
+    
+    /* General Text */
+    p {
+        color: #555;
+        font-size: 1.1rem;
+    }
+    
+    /* Buttons & Multiselect */
+    .stButton>button, .stMultiSelect {
+        background-color: #007bff;
+        color: white;
+        font-weight: 600;
+        border-radius: 30px;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    }
+    
+    .stButton>button:hover, .stMultiSelect:hover {
+        background-color: #0056b3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 123, 255, 0.4);
+    }
+
+    /* Cards/Sections */
+    .st-emotion-cache-1c5vsmv, .st-emotion-cache-1629p8f {
+        background-color: #fff;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+    }
+
+    /* Info/Success/Warning boxes */
+    .stAlert {
+        border-radius: 12px;
+        font-size: 1rem;
+        border-left: 5px solid;
+    }
+    .stAlert.success {
+        border-color: #28a745; /* Green */
+    }
+    .stAlert.info {
+        border-color: #17a2b8; /* Cyan */
+    }
+    .stAlert.warning {
+        border-color: #ffc107; /* Yellow */
+    }
+
+    /* Chat Messages */
+    [data-testid="stChatMessage"] {
+        border-radius: 15px;
+        padding: 10px 15px;
+        margin-bottom: 10px;
+    }
+    
+    [data-testid="stChatMessage"].user {
+
+        color: #333;
+    }
+
+    [data-testid="stChatMessage"].assistant {
+        background-color: #f5f5f5; /* Light grey */
+        color: #333;
+    }
+    
+    .st-chat-input .st-emotion-cache-1p6f58p {
+        background-color: #fff;
+        border-radius: 30px;
+    }
+    
+</style>
+""", unsafe_allow_html=True)
+
+# --- Local Translation Models Setup ---
+@st.cache_resource
+def get_translator(target_lang):
+    if target_lang == "en":
+        return None
+    if target_lang == "hi":
+        model_name = "Helsinki-NLP/opus-mt-en-hi"
+        task = "translation_en_to_hi"
+    elif target_lang == "mr":
+        model_name = "Helsinki-NLP/opus-mt-en-mr"
+        task = "translation_en_to_mr"
+    elif target_lang == "ori":
+        model_name = "ai4bharat/indictrans-fairseq"
+        task = "translation_en_to_ori"
+    else:
+        st.error(f"No translation model available for language code '{target_lang}'.")
+        return None
+    try:
+        translator = pipeline(task, model=model_name)
+        return translator
+    except Exception as e:
+        st.error(f"Failed to load translation model for {target_lang}: {e}")
+        return None
+
+translators = {lang: get_translator(lang) for lang in ["hi", "mr", "ori"]}
 
 # === Load CSV Datasets ===
 try:
-    dataset = pd.read_csv(os.path.join(DATA_FOLDER, "dataset.csv"))
     training_data = pd.read_csv(os.path.join(DATA_FOLDER, "training.csv"))
-    testing_data = pd.read_csv(os.path.join(DATA_FOLDER, "testing.csv"))
-
     symptom_desc = pd.read_csv(os.path.join(MASTERDATA_FOLDER, "symptom_Description.csv"))
     symptom_precaution = pd.read_csv(os.path.join(MASTERDATA_FOLDER, "symptom_precaution.csv"))
-    symptom_severity = pd.read_csv(os.path.join(MASTERDATA_FOLDER, "Symptom_severity.csv"))
-
     all_symptoms = training_data.columns[1:].tolist()
 
 except FileNotFoundError as e:
     st.error(f"Error: A required data file was not found. Please ensure your project structure is correct.")
     st.stop()
 
-# === Translation Dictionaries ===
-# UI Text Translations
-translations = {
-    "en": {
-        "title": "🩺 Healthcare Chatbot", "sidebar_header": "Patient Info", "name_label": "Enter your name",
-        "symptoms_label": "Select your symptoms", "days_label": "How many days have you had symptoms?",
-        "additional_symptoms_header": "🔍 Additional Symptoms", "additional_symptom_question": "Do you also have {}?",
-        "submit_button": "🔎 Submit Symptoms", "voice_button": "🎙️ Start Voice Recognition",
-        "symptoms_title": "✔️ Your Selected Symptoms:", "diagnosis_title": "🩺 Possible Diagnosis from Symptoms",
-        "description_title": "📚 Disease Description", "precautions_title": "🛡️ Precautions",
-        "severity_title": "⚠️ Symptom Severity Levels", "image_upload_header": "📸 Upload Skin Image for Disease Detection",
-        "upload_label": "Upload an image of the skin disease",
-        "spinner_text": "🔄 Analyzing image using Hugging Face model...",
-        "ai_prediction": "🤖 AI Prediction:", "ai_precaution_header": "🛡️ Suggested Precautions for this Condition",
-        "no_precaution": "No specific precautions found for this disease.",
-        "api_error": "❌ Failed to connect to Hugging Face API. Please check your key or quota.",
-        "ai_no_detect": "⚠️ Could not detect any condition from the image.",
-        "warning_select_symptom": "Please select at least one symptom.", "listening": "Listening...",
-        "you_said": "You said:", "no_understand": "Could not understand audio.",
-        "request_error": "Could not request results;", "processing_voice": "Processing your voice input:",
-        "detected_symptoms": "✔️ Detected Symptoms from Voice Input:",
-        "no_symptoms_found": "No symptoms found in your voice input.", "greeting": "Hello, how can I help you today?",
-        "google_lang": "en-US"
-    },
-    "hi": {
-        "title": "🩺 स्वास्थ्य देखभाल चैटबॉट", "sidebar_header": "रोगी जानकारी", "name_label": "अपना नाम दर्ज करें",
-        "symptoms_label": "अपने लक्षण चुनें", "days_label": "आपको कितने दिनों से लक्षण हैं?",
-        "additional_symptoms_header": "🔍 अतिरिक्त लक्षण", "additional_symptom_question": "क्या आपको {} भी है?",
-        "submit_button": "🔎 लक्षण सबमिट करें", "voice_button": "🎙️ ध्वनि पहचान शुरू करें",
-        "symptoms_title": "✔️ आपके चयनित लक्षण:", "diagnosis_title": "🩺 लक्षणों से संभावित निदान",
-        "description_title": "📚 रोग का विवरण", "precautions_title": "🛡️ सावधानियां",
-        "severity_title": "⚠️ लक्षणों का गंभीरता स्तर", "image_upload_header": "📸 त्वचा रोग का पता लगाने के लिए छवि अपलोड करें",
-        "upload_label": "त्वचा रोग की एक छवि अपलोड करें",
-        "spinner_text": "🔄 हगिंग फेस मॉडल का उपयोग करके छवि का विश्लेषण किया जा रहा है...",
-        "ai_prediction": "🤖 AI भविष्यवाणी:", "ai_precaution_header": "🛡️ इस स्थिति के लिए सुझाई गई सावधानियां",
-        "no_precaution": "इस रोग के लिए कोई विशेष सावधानी नहीं मिली।",
-        "api_error": "❌ हगिंग फेस API से कनेक्ट होने में विफल। कृपया अपनी कुंजी या कोटा जांचें।",
-        "ai_no_detect": "⚠️ छवि से कोई भी स्थिति का पता नहीं चला।",
-        "warning_select_symptom": "कृपया कम से कम एक लक्षण चुनें।", "listening": "सुन रहा हूँ...",
-        "you_said": "आपने कहा:", "no_understand": "ऑडियो समझ नहीं आया।",
-        "request_error": "अनुरोध के परिणाम नहीं मिल सके;", "processing_voice": "आपके ध्वनि इनपुट का प्रसंस्करण किया जा रहा है:",
-        "detected_symptoms": "✔️ ध्वनि इनपुट से पता चले लक्षण:",
-        "no_symptoms_found": "आपके ध्वनि इनपुट में कोई लक्षण नहीं मिला।", "greeting": "नमस्ते, मैं आज आपकी कैसे मदद कर सकता हूँ?",
-        "google_lang": "hi-IN"
-    },
-    "mr": {
-        "title": "🩺 आरोग्य सेवा चॅटबॉट", "sidebar_header": "रुग्णाची माहिती", "name_label": "तुमचे नाव टाका",
-        "symptoms_label": "तुमची लक्षणे निवडा", "days_label": "तुम्हाला किती दिवसांपासून लक्षणे आहेत?",
-        "additional_symptoms_header": "🔍 अतिरिक्त लक्षणे", "additional_symptom_question": "तुम्हाला {} सुद्धा आहे का?",
-        "submit_button": "🔎 लक्षणे सबमिट करा", "voice_button": "🎙️ व्हॉइस रेकग्निशन सुरू करा",
-        "symptoms_title": "✔️ तुमची निवडलेली लक्षणे:", "diagnosis_title": "🩺 लक्षणांवर आधारित संभाव्य निदान",
-        "description_title": "📚 रोगाचे वर्णन", "precautions_title": "🛡️ खबरदारी",
-        "severity_title": "⚠️ लक्षणांची तीव्रता पातळी", "image_upload_header": "📸 त्वचेच्या रोगाच्या शोधासाठी प्रतिमा अपलोड करा",
-        "upload_label": "त्वचेच्या रोगाची प्रतिमा अपलोड करा",
-        "spinner_text": "🔄 हगिंग फेस मॉडेल वापरून प्रतिमेचे विश्लेषण करत आहे...",
-        "ai_prediction": "🤖 AI अंदाज:", "ai_precaution_header": "🛡️ या स्थितीसाठी सुचवलेली खबरदारी",
-        "no_precaution": "या रोगासाठी कोणतीही विशिष्ट खबरदारी सापडली नाही।",
-        "api_error": "❌ हगिंग फेस API शी कनेक्ट होण्यात अयशस्वी. कृपया तुमची की किंवा कोटा तपासा.",
-        "ai_no_detect": "⚠️ प्रतिमेतून कोणतीही स्थिती ओळखता आली नाही।",
-        "warning_select_symptom": "कृपया कमीतकमी एक लक्षण निवडा।", "listening": "ऐकत आहे...",
-        "you_said": "तुम्ही म्हणालात:", "no_understand": "ऑडिओ समजू शकला नाही।",
-        "request_error": "विनंती परिणाम मिळू शकला नाही;", "processing_voice": "तुमची व्हॉइस इनपुट प्रक्रिया करत आहे:",
-        "detected_symptoms": "✔️ व्हॉइस इनपुटने आढळलेली लक्षणे:",
-        "no_symptoms_found": "तुमच्या व्हॉइस इनपुटमध्ये कोणतीही लक्षणे आढळली नाहीत।", "greeting": "नमस्कार, मी आज तुम्हाला कशी मदत करू शकेन?",
-        "google_lang": "mr-IN"
-    },
-    "or": {
-        "title": "🩺 ସ୍ୱାସ୍ଥ୍ୟସେବା ଚାଟବଟ୍", "sidebar_header": "ରୋଗୀ ସୂଚନା", "name_label": "ଆପଣଙ୍କ ନାମ ପ୍ରବେଶ କରନ୍ତୁ",
-        "symptoms_label": "ଆପଣଙ୍କ ଲକ୍ଷଣଗୁଡ଼ିକୁ ବାଛନ୍ତୁ", "days_label": "ଆପଣଙ୍କୁ କେତେ ଦିନ ହେବ ଲକ୍ଷଣ ଅଛି?",
-        "additional_symptoms_header": "🔍 ଅତିରିକ୍ତ ଲକ୍ଷଣଗୁଡ଼ିକ", "additional_symptom_question": "ଆପଣଙ୍କୁ {} ମଧ୍ୟ ଅଛି କି?",
-        "submit_button": "🔎 ଲକ୍ଷଣ ଦାଖଲ କରନ୍ତୁ", "voice_button": "🎙️ ଭଏସ୍ ଚିହ୍ନଟ ଆରମ୍ଭ କରନ୍ତୁ",
-        "symptoms_title": "✔️ ଆପଣଙ୍କ ଦ୍ୱାରା ଚୟନିତ ଲକ୍ଷଣଗୁଡ଼ିକ:", "diagnosis_title": "🩺 ଲକ୍ଷଣରୁ ସମ୍ଭାବ୍ୟ ନିର୍ଣ୍ଣୟ",
-        "description_title": "📚 ରୋଗର ବର୍ଣ୍ଣନା", "precautions_title": "🛡️ ସାବଧାନତା",
-        "severity_title": "⚠️ ଲକ୍ଷଣର ଗୁରୁତ୍ୱ ସ୍ତର", "image_upload_header": "📸 ଚର୍ମ ରୋଗ ଚିହ୍ନଟ ପାଇଁ ଛବି ଅପଲୋଡ୍ କରନ୍ତୁ",
-        "upload_label": "ଚର୍ମ ରୋଗର ଏକ ଛବି ଅପଲୋଡ୍ କରନ୍ତୁ",
-        "spinner_text": "🔄 ହଗିଂ ଫେସ୍ ମଡେଲ୍ ବ୍ୟବହାର କରି ଛବି ବିଶ୍ଳେଷଣ କରାଯାଉଛି...",
-        "ai_prediction": "🤖 AI ପୂର୍ବାନୁମାନ:", "ai_precaution_header": "🛡️ ଏହି ସ୍ଥିତି ପାଇଁ ସୁଗଠିତ ସାବଧାନତା",
-        "no_precaution": "ଏହି ରୋଗ ପାଇଁ କୌଣସି ନିର୍ଦ୍ଦିଷ୍ଟ ସାବଧାନତା ମିଳିଲା ନାହିଁ।",
-        "api_error": "❌ ହଗିଂ ଫେସ୍ API ସହିତ ସଂଯୋଗ ବିଫଳ ହେଲା। ଦୟାକରି ଆପଣଙ୍କ କି କିମ୍ବା କୋଟା ଯାଞ୍ଚ କରନ୍ତୁ।",
-        "ai_no_detect": "⚠️ ଛବିରୁ କୌଣସି ଅବସ୍ଥା ଚିହ୍ନଟ ହୋଇପାରିଲା ନାହିଁ।",
-        "warning_select_symptom": "ଦୟାକରି ଅତି କମରେ ଗୋଟିଏ ଲକ୍ଷଣ ବାଛନ୍ତୁ।", "listening": "ଶୁଣୁଛି...",
-        "you_said": "ଆପଣ କହିଲେ:", "no_understand": "ଅଡିଓ ବୁଝିହେଲା ନାହିଁ।",
-        "request_error": "ଅନୁରୋଧ ଫଳାଫଳ ମିଳିଲା ନାହିଁ;", "processing_voice": "ଆପଣଙ୍କ ଭଏସ୍ ଇନପୁଟ୍ ପ୍ରକ୍ରିୟାକରଣ କରାଯାଉଛି:",
-        "detected_symptoms": "✔️ ଭଏସ୍ ଇନପୁଟ୍ରୁ ଚିହ୍ନଟ ଲକ୍ଷଣଗୁଡ଼ିକ:",
-        "no_symptoms_found": "ଆପଣଙ୍କ ଭଏସ୍ ଇନପୁଟ୍ରେ କୌଣସି ଲକ୍ଷଣ ମିଳିଲା ନାହିଁ।", "greeting": "ନମସ୍କାର, ମୁଁ ଆଜି ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?",
-        "google_lang": "or-IN"
-    }
-}
-
-# Symptom Name Translations
-symptom_translations = {
-    "itching": {"en": "Itching", "hi": "खुजली", "mr": "खाज", "or": "କାଛୁ"},
-    "skin_rash": {"en": "Skin Rash", "hi": "त्वचा पर चकत्ते", "mr": "त्वचेवर पुरळ", "or": "ଚର୍ମ ଘା'"},
-    "nodal_skin_eruptions": {"en": "Nodal Skin Eruptions", "hi": "नोडल त्वचा विस्फोट", "mr": "नोडल त्वचेचा उद्रेक", "or": "ନୋଡାଲ୍ ଚର୍ମ ଫାଟ"},
-    "continuous_sneezing": {"en": "Continuous Sneezing", "hi": "लगातार छींक आना", "mr": "सतत शिंका येणे", "or": "ଲଗାତାର ଛିଙ୍କ"},
-    "shivering": {"en": "Shivering", "hi": "कंपकंपी", "mr": "थंडी वाजणे", "or": "ଥରିବା"},
-    "chills": {"en": "Chills", "hi": "ठंड लगना", "mr": "थंडी", "or": "ଥଣ୍ଡା ଲାଗିବା"},
-    "joint_pain": {"en": "Joint Pain", "hi": "जोड़ों का दर्द", "mr": "सांधेदुखी", "or": "ଗଣ୍ଠି ଯନ୍ତ୍ରଣା"},
-    "stomach_pain": {"en": "Stomach Pain", "hi": "पेट दर्द", "mr": "पोटदुखी", "or": "ପେଟ ଯନ୍ତ୍ରଣା"},
-    "acidity": {"en": "Acidity", "hi": "एसिडिटी", "mr": "आंबटपणा", "or": "ଏସିଡିଟି"},
-    "ulcers_on_tongue": {"en": "Ulcers on Tongue", "hi": "जीभ पर छाले", "mr": "जिभेवर फोड", "or": "ଜିଭରେ ଘା"},
-    "muscle_wasting": {"en": "Muscle Wasting", "hi": "मांसपेशियों का क्षय", "mr": "स्नायूंचा ऱ्हास", "or": "ମାଂସପେଶୀ ନଷ୍ଟ"},
-    "vomiting": {"en": "Vomiting", "hi": "उल्टी", "mr": "उलट्या होणे", "or": "ବାନ୍ତି"},
-    "burning_micturition": {"en": "Burning Micturition", "hi": "पेशाब में जलन", "mr": "लघवी करताना जळजळ", "or": "ପରିସ୍ରା କରିବାରେ ଜଳାପୋଡା"},
-    "fatigue": {"en": "Fatigue", "hi": "थकान", "mr": "थकवा", "or": "କ୍ଳାନ୍ତି"},
-    "weight_gain": {"en": "Weight Gain", "hi": "वजन बढ़ना", "mr": "वजन वाढणे", "or": "ଓଜନ ବୃଦ୍ଧି"},
-    "anxiety": {"en": "Anxiety", "hi": "चिंता", "mr": "चिंता", "or": "ଚିନ୍ତା"},
-    "cold_hands_and_feets": {"en": "Cold Hands and Feet", "hi": "हाथ और पैर ठंडे", "mr": "हात आणि पाय थंड", "or": "ହାତ ଏବଂ ପାଦ ଥଣ୍ଡା"},
-    "mood_swings": {"en": "Mood Swings", "hi": "मूड में बदलाव", "mr": "मूड बदलणे", "or": "ମନର ପରିବର୍ତ୍ତନ"},
-    "weight_loss": {"en": "Weight Loss", "hi": "वजन घटना", "mr": "वजन कमी होणे", "or": "ଓଜନ ହ୍ରାସ"},
-    "restlessness": {"en": "Restlessness", "hi": "बेचैनी", "mr": "अस्वस्थता", "or": "ଅଶାନ୍ତି"},
-    "lethargy": {"en": "Lethargy", "hi": "आलस्य", "mr": "आलस", "or": "ଆଳସ୍ୟ"},
-    "patches_in_throat": {"en": "Patches in Throat", "hi": "गले में धब्बे", "mr": "घशात डाग", "or": "ଗଳାରେ ଦାଗ"},
-    "high_fever": {"en": "High Fever", "hi": "तेज बुखार", "mr": "तीव्र ताप", "or": "ଅଧିକ ଜ୍ୱର"},
-    "sunken_eyes": {"en": "Sunken Eyes", "hi": "धंसी हुई आंखें", "mr": "डोळे खोल जाणे", "or": "ପଶି ଯାଇଥିବା ଆଖି"},
-    "dehydration": {"en": "Dehydration", "hi": "निर्जलीकरण", "mr": "निर्जलीकरण", "or": "ଜଳହୀନତା"},
-    "indigestion": {"en": "Indigestion", "hi": "अपच", "mr": "अपचन", "or": "ଅଜୀର୍ଣ୍ଣ"},
-    "headache": {"en": "Headache", "hi": "सरदर्द", "mr": "डोकेदुखी", "or": "ମୁଣ୍ଡବିନ୍ଧା"},
-    "yellowish_skin": {"en": "Yellowish Skin", "hi": "पीली त्वचा", "mr": "पिवळी त्वचा", "or": "ହଳଦିଆ ଚର୍ମ"},
-    "dark_urine": {"en": "Dark Urine", "hi": "गहरा पेशाब", "mr": "गडद लघवी", "or": "ଗାଢ ପରିସ୍ରା"},
-    "nausea": {"en": "Nausea", "hi": "जी मिचलाना", "mr": "मळमळ", "or": "ଅଇ"},
-    "loss_of_appetite": {"en": "Loss of Appetite", "hi": "भूख न लगना", "mr": "भूक न लागणे", "or": "ଭୋକ ନ ଲାଗିବା"},
-    "pain_behind_the_eyes": {"en": "Pain Behind the Eyes", "hi": "आंखों के पीछे दर्द", "mr": "डोळ्यांच्या मागे वेदना", "or": "ଆଖି ପଛରେ ଯନ୍ତ୍ରଣା"},
-    "back_pain": {"en": "Back Pain", "hi": "पीठ दर्द", "mr": "पाठदुखी", "or": "ପିଠି ଯନ୍ତ୍ରଣା"},
-    "constipation": {"en": "Constipation", "hi": "कब्ज", "mr": "बद्धकोष्ठता", "or": "କୋଷ୍ଠକାଠିନ୍ୟ"},
-    "abdominal_pain": {"en": "Abdominal Pain", "hi": "पेट दर्द", "mr": "पोटदुखी", "or": "ପେଟ ଯନ୍ତ୍ରଣା"},
-    "diarrhoea": {"en": "Diarrhoea", "hi": "दस्त", "mr": "जुलाब", "or": "ଝାଡା"},
-    "mild_fever": {"en": "Mild Fever", "hi": "हल्का बुखार", "mr": "हलका ताप", "or": "ହାଲୁକା ଜ୍ୱର"},
-    "yellow_urine": {"en": "Yellow Urine", "hi": "पीला पेशाब", "mr": "पिवळी लघवी", "or": "ହଳଦିଆ ପରିସ୍ରା"},
-    "yellowing_of_eyes": {"en": "Yellowing of Eyes", "hi": "आंखों का पीला होना", "mr": "डोळ्यांचा पिवळेपणा", "or": "ଆଖି ହଳଦିଆ ହେବା"},
-    "acute_liver_failure": {"en": "Acute Liver Failure", "hi": "तीव्र यकृत विफलता", "mr": "तीव्र यकृत निकामी", "or": "ତୀବ୍ର ଯକୃତ ବିଫଳତା"},
-    "fluid_overload": {"en": "Fluid Overload", "hi": "फ्लूइड ओवरलोड", "mr": "द्रव वाढणे", "or": "ତରଳ ପଦାର୍ଥର ବୃଦ୍ଧି"},
-    "swelling_of_stomach": {"en": "Swelling of Stomach", "hi": "पेट में सूजन", "mr": "पोटात सूज", "or": "ପେଟ ଫୁଲିବା"},
-    "swelled_lymph_nodes": {"en": "Swollen Lymph Nodes", "hi": "सूजे हुए लिम्फ नोड्स", "mr": "सुजलेले लिम्फ नोड्स", "or": "ଫୁଲିଥିବା ଲିମ୍ଫ ନୋଡ୍"},
-    "malaise": {"en": "Malaise", "hi": "अस्वस्थता", "mr": "अस्वस्थता", "or": "ଅସୁସ୍ଥତା"},
-    "blurred_and_distorted_vision": {"en": "Blurred and Distorted Vision", "hi": "धुंधली और विकृत दृष्टि", "mr": "अंधुक आणि विकृत दृष्टी", "or": "ଅସ୍ପଷ୍ଟ ଏବଂ ବିକୃତ ଦୃଷ୍ଟି"},
-    "phlegm": {"en": "Phlegm", "hi": "कफ", "mr": "कफ", "or": "କଫ"},
-    "throat_irritation": {"en": "Throat Irritation", "hi": "गले में जलन", "mr": "घसा खवखवणे", "or": "ଗଳା ଜଳାପୋଡା"},
-    "redness_of_eyes": {"en": "Redness of Eyes", "hi": "आंखों का लाल होना", "mr": "डोळ्यांची लालसरपणा", "or": "ଆଖି ଲାଲ ହେବା"},
-    "sinus_pressure": {"en": "Sinus Pressure", "hi": "साइनस दबाव", "mr": "सायनस दाब", "or": "ସାଇନସ୍ ଚାପ"},
-    "runny_nose": {"en": "Runny Nose", "hi": "बहती नाक", "mr": "नाक वाहणे", "or": "ନାକ ବହିବା"},
-    "congestion": {"en": "Congestion", "hi": "भीड़", "mr": "गर्दी", "or": "ଭିଡ଼"},
-    "chest_pain": {"en": "Chest Pain", "hi": "सीने में दर्द", "mr": "छातीत दुखणे", "or": "ଛାତି ଯନ୍ତ୍ରଣା"},
-    "fast_heart_rate": {"en": "Fast Heart Rate", "hi": "तेज हृदय गति", "mr": "जलद हृदयाची गती", "or": "ଦ୍ରୁତ ହୃଦୟ ଗତି"},
-    "dizziness": {"en": "Dizziness", "hi": "चक्कर आना", "mr": "चक्कर येणे", "or": "ମୁଣ୍ଡ ବୁଲାଇବା"},
-    "loss_of_balance": {"en": "Loss of Balance", "hi": "संतुलन खोना", "mr": "संतुलन गमावणे", "or": "ସନ୍ତୁଳନ ହରାଇବା"},
-    "lack_of_concentration": {"en": "Lack of Concentration", "hi": "एकाग्रता की कमी", "mr": "एकाग्रतेचा अभाव", "or": "ଏକାଗ୍ରତାର ଅଭାବ"},
-    "altered_sensorium": {"en": "Altered Sensorium", "hi": "परिवर्तित संवेदनशीलता", "mr": "बदललेली संवेदनशीलता", "or": "ପରିବର୍ତ୍ତିତ ସେନ୍ସରିୟମ୍"},
-    "family_history": {"en": "Family History", "hi": "पारिवारिक इतिहास", "mr": "कौटुंबिक इतिहास", "or": "ପାରିବାରିକ ଇତିହାସ"},
-    "mucoid_sputum": {"en": "Mucoid Sputum", "hi": "म्यूकॉइड थूक", "mr": "म्यूकॉइड थुंका", "or": "ମ୍ୟୁକଏଡ୍ ଖଙ୍କାର"},
-    "rusty_sputum": {"en": "Rusty Sputum", "hi": "जंग लगा थूक", "mr": "गंजलेला थुंका", "or": "ଜଙ୍ଗ ଖଙ୍କାର"},
-    "lack_of_odor": {"en": "Lack of Odor", "hi": "गंध की कमी", "mr": "वासाचा अभाव", "or": "ଗନ୍ଧର ଅଭାବ"},
-    "irritation_in_anus": {"en": "Irritation in Anus", "hi": "गुदा में जलन", "mr": "गुदद्वारात जळजळ", "or": "ଗୁଦ୍ୱାରରେ ଜଳାପୋଡା"},
-    "passage_of_gases": {"en": "Passage of Gases", "hi": "गैसों का निकलना", "mr": "वायू बाहेर पडणे", "or": "ଗ୍ୟାସ୍ ବାହାରିବା"},
-    "internal_itching": {"en": "Internal Itching", "hi": "आंतरिक खुजली", "mr": "अंतर्गत खाज", "or": "ଆଭ୍ୟନ୍ତରୀଣ କାଛୁ"},
-    "toxic_look": {"en": "Toxic Look", "hi": "विषाक्त रूप", "mr": "विषारी दिसणे", "or": "ବିଷାକ୍ତ ଦେଖାଯିବା"},
-    "unsteadiness": {"en": "Unsteadiness", "hi": "अस्थिरता", "mr": "अस्थिरता", "or": "ଅସ୍ଥିରତା"},
-    "swelling_of_legs": {"en": "Swelling of Legs", "hi": "पैरों में सूजन", "mr": "पायांना सूज", "or": "ଗୋଡ ଫୁଲିବା"},
-    "swollen_ankles": {"en": "Swollen Ankles", "hi": "सूजे हुए टखने", "mr": "सुजलेले घोटे", "or": "ଫୁଲିଥିବା ଗୋଇଠି"},
-    "brittle_nails": {"en": "Brittle Nails", "hi": "कमजोर नाखून", "mr": "ठिसूळ नखे", "or": "ଭଙ୍ଗୁର ନଖ"},
-    "puffy_face_and_eyes": {"en": "Puffy Face and Eyes", "hi": "फूला हुआ चेहरा और आंखें", "mr": "सुजलेले चेहरा आणि डोळे", "or": "ଫୁଲିଥିବା ମୁହଁ ଏବଂ ଆଖି"},
-    "enlarged_thyroid": {"en": "Enlarged Thyroid", "hi": "बढ़ा हुआ थायराइड", "mr": "वाढलेली थायरॉइड ग्रंथी", "or": "ବର୍ଦ୍ଧିତ ଥାଇରଏଡ୍"},
-    "slurred_speech": {"en": "Slurred Speech", "hi": "अस्पष्ट भाषण", "mr": "अस्पष्ट भाषण", "or": "ସ୍ଲୁର୍ଡ୍ ବକ୍ତୃତା"},
-    "red_sore_around_nose": {"en": "Red Sore Around Nose", "hi": "नाक के चारों ओर लाल घाव", "mr": "नाकाजवळ लाल फोड", "or": "ନାକ ଚାରିପଟେ ଲାଲ ଘା'"},
-    "ulcers_on_lips": {"en": "Ulcers on Lips", "hi": "होंठों पर छाले", "mr": "ओठांवर फोड", "or": "ଓଠରେ ଘା"},
-    "blistering": {"en": "Blistering", "hi": "छाले पड़ना", "mr": "फोडे येणे", "or": "ଫୋଟକା ହେବା"},
-    "spotting_urination": {"en": "Spotting Urination", "hi": "पेशाब में धब्बे", "mr": "लघवीत ठिपके", "or": "ପରିସ୍ରାରେ ଦାଗ"}
-}
-
-# === Text-to-Speech ===
-def speak(text):
-    engine = pyttsx3.init()
-    engine.setProperty('rate', 130)
-    engine.say(text)
-    engine.runAndWait()
-
-# === Voice Recognition ===
-def voice_input(lang_dict):
-    r = sr.Recognizer()
-    try:
-        st.info(lang_dict["listening"])
-        speak(lang_dict["listening"])
-        with sr.Microphone() as source:
-            audio = r.listen(source, timeout=5)
-        text = r.recognize_google(audio, language=lang_dict.get("google_lang", "en-US"))
-        st.success(f"{lang_dict['you_said']} {text}")
+# === Dynamic Translation Function using Hugging Face ===
+@st.cache_data(show_spinner=False)
+def translate_text(text, target_language):
+    if target_language == 'en' or not text:
         return text
-    except sr.UnknownValueError:
-        st.error(lang_dict["no_understand"])
-        return ""
-    except sr.RequestError as e:
-        st.error(f"{lang_dict['request_error']} {e}")
-        return ""
-    except Exception as e:
-        st.error(f"An unexpected error occurred: {e}")
-        return ""
-
-# === Streamlit UI ===
-st.set_page_config(page_title="Healthcare Chatbot", layout="wide")
-
-# Add the manual language selection dropdown
-selected_lang = st.sidebar.selectbox(
-    "Select Language",
-    list(translations.keys()),
-    format_func=lambda x: {"en": "English", "hi": "हिंदी", "mr": "Marathi", "or": "Odia"}[x]
-)
-lang_dict = translations[selected_lang]
-
-# Create the list of translated symptom options for the multiselect
-symptom_options = [symptom_translations.get(sym, {}).get(selected_lang, sym.replace('_', ' ')) for sym in all_symptoms]
-
-st.title(lang_dict["title"])
-st.sidebar.header(lang_dict["sidebar_header"])
-
-# Sidebar inputs
-name = st.sidebar.text_input(lang_dict["name_label"])
-user_symptoms_translated = st.sidebar.multiselect(lang_dict["symptoms_label"], symptom_options)
-days = st.sidebar.number_input(lang_dict["days_label"], min_value=1, max_value=30, value=3)
-
-# Voice input for symptoms
-st.write("### 🎙️ Voice Recognition")
-if st.button(lang_dict["voice_button"]):
-    recognized_text = voice_input(lang_dict)
-    if recognized_text:
-        st.write(f"### {lang_dict['detected_symptoms']}")
-        # Match voice input with original symptom names (more robust)
-        matching_symptoms = [sym for sym in all_symptoms if sym.replace('_', ' ').lower() in recognized_text.lower()]
-        
-        if matching_symptoms:
-            display_symptoms = [symptom_translations.get(sym, {}).get(selected_lang, sym.replace('_', ' ')) for sym in matching_symptoms]
-            st.info(", ".join(display_symptoms))
-        else:
-            st.warning(lang_dict["no_symptoms_found"])
-
-# Additional symptoms
-additional_symptoms_translated = []
-if user_symptoms_translated:
-    st.write(f"### {lang_dict['additional_symptoms_header']}")
-    # Get the original symptom names from the translated ones
-    selected_english_symptoms = [sym for sym in all_symptoms if symptom_translations.get(sym, {}).get(selected_lang, sym.replace('_', ' ')) in user_symptoms_translated]
-
-    for symptom in all_symptoms:
-        if symptom not in selected_english_symptoms:
-            translated_symptom_name = symptom_translations.get(symptom, {}).get(selected_lang, symptom.replace('_', ' '))
-            translated_question = lang_dict['additional_symptom_question'].format(translated_symptom_name)
-            
-            # --- THE FIX IS HERE ---
-            # We use the original symptom name as a unique key for each checkbox
-            response = st.checkbox(translated_question, key=f"checkbox_{symptom}")
-            
-            if response:
-                additional_symptoms_translated.append(translated_symptom_name)
-
-# ===== Submit Symptoms Button =====
-if st.button(lang_dict["submit_button"]):
-    if user_symptoms_translated:
-        all_user_symptoms_translated = list(set(user_symptoms_translated + additional_symptoms_translated))
-        
-        # Convert all selected symptoms back to original English names
-        all_user_symptoms_original = [
-            sym for sym in all_symptoms if symptom_translations.get(sym, {}).get(selected_lang, sym.replace('_', ' ')) in all_user_symptoms_translated
-        ]
-        
-        st.write(f"### {lang_dict['symptoms_title']}")
-        st.write(", ".join(all_user_symptoms_translated))
-
-        # Predict Disease using original symptom names
-        matching_diseases = training_data.copy()
-        matching_diseases["match_count"] = matching_diseases.iloc[:, 1:].apply(
-            lambda row: sum(row[all_user_symptoms_original]), axis=1)
-        predicted_disease = matching_diseases.sort_values(by="match_count", ascending=False).iloc[0]["prognosis"]
-
-        st.write(f"### {lang_dict['diagnosis_title']}")
-        st.success(f"Based on your symptoms, you might have: **{predicted_disease}**")
-        speak(f"Based on your symptoms, you might have {predicted_disease}")
-
-        # Disease Description
-        description = symptom_desc[symptom_desc["prognosis"] == predicted_disease]["Description"].values
-        if len(description) > 0:
-            st.write(f"### {lang_dict['description_title']}")
-            st.info(description[0])
-
-        # Precautions
-        precautions = symptom_precaution[symptom_precaution["Disease"] == predicted_disease].iloc[:, 1:].values.flatten()
-        if len(precautions) > 0:
-            st.write(f"### {lang_dict['precautions_title']}")
-            for i, precaution in enumerate(precautions):
-                st.write(f"{i + 1}. {precaution}")
-
-        # Symptom Severity
-        st.write(f"### {lang_dict['severity_title']}")
-        severity_data = []
-        for symptom in all_user_symptoms_original:
-            severity = symptom_severity[symptom_severity["Symptom"] == symptom]["weight"].values
-            if len(severity) > 0:
-                severity_data.append((symptom.replace('_', ' '), severity[0]))
-        severity_df = pd.DataFrame(severity_data, columns=["Symptom", "Severity Level"])
-        st.table(severity_df)
+    
+    translator = translators.get(target_language)
+    if translator:
+        try:
+            translated_result = translator(text)
+            return translated_result[0]['translation_text']
+        except Exception as e:
+            st.error(f"Translation failed: {e}")
+            return text
     else:
-        st.warning(lang_dict["warning_select_symptom"])
+        return text
 
-# ====== Skin Disease Image Upload (Hugging Face Model) ======
-st.write(f"## {lang_dict['image_upload_header']}")
-uploaded_file = st.file_uploader(lang_dict["upload_label"], type=["jpg", "jpeg", "png"])
-if uploaded_file is not None:
-    st.image(uploaded_file, caption="Uploaded Skin Image", use_column_width=True)
-    # Send image to Hugging Face API
-    with st.spinner(lang_dict["spinner_text"]):
-        image_bytes = uploaded_file.read()
+# --- Helper Function for Language Code Mapping ---
+language_options = {
+    "English": "en",
+    "Hindi": "hi",
+    "Marathi": "mr",
+    "Odia": "ori"
+}
+
+# === Chatbot Functionality ===
+def get_chatbot_response(question, disease_name, lang_code):
+    greetings = ["hi", "hello", "hey", "namaste", "namaskar"]
+    if any(greeting in question.lower() for greeting in greetings):
+        return translate_text("Hello, how can I help you today?", lang_code)
+    
+    if disease_name:
         headers = {
             "Authorization": f"Bearer {HF_API_KEY}",
-            "Content-Type": "application/octet-stream"
+            "Content-Type": "application/json"
         }
-        response = requests.post(HF_API_URL, headers=headers, data=image_bytes)
-        if response.status_code == 200:
-            predictions = response.json()
-            if isinstance(predictions, list) and len(predictions) > 0:
-                top_prediction = predictions[0]
-                predicted_label = top_prediction["label"]
-                confidence = round(top_prediction["score"] * 100, 2)
-                st.success(f"{lang_dict['ai_prediction']} **{predicted_label}** ({confidence}% confidence)")
-                speak(f"The AI model predicts {predicted_label} with {confidence} percent confidence")
-                # Show precautions
-                st.write(f"### {lang_dict['ai_precaution_header']}")
-                precautions = symptom_precaution[symptom_precaution["Disease"].str.lower() == predicted_label.lower()].iloc[:, 1:].values.flatten()
-                if len(precautions) > 0:
-                    for i, precaution in enumerate(precautions):
-                        st.write(f"{i + 1}. {precaution}")
-                else:
-                    st.info(lang_dict["no_precaution"])
+        prompt = f"The user has been diagnosed with {disease_name}. They have a question: {question}\n\nPlease provide a helpful and brief response."
+        payload = {
+            "inputs": prompt,
+            "options": {"wait_for_model": True}
+        }
+        try:
+            response = requests.post(CHATBOT_API_URL, headers=headers, data=json.dumps(payload))
+            response.raise_for_status() 
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0:
+                translated_response = translate_text(result[0]["generated_text"].strip(), lang_code)
+                return translated_response
             else:
-                st.error(lang_dict["ai_no_detect"])
+                return translate_text("I'm sorry, I cannot provide an answer for that.", lang_code)
+        
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error connecting to the chatbot service: {e}")
+            return translate_text("I'm sorry, I cannot provide an answer for that.", lang_code)
+    
+    return translate_text("I'm sorry, I cannot provide an answer for that.", lang_code)
+
+
+# === Streamlit UI ===
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = []
+if "predicted_disease" not in st.session_state:
+    st.session_state["predicted_disease"] = None
+
+st.title(translate_text("🩺 Dhanwantari: Healthcare Chatbot", "en"))
+st.write(translate_text("Your multilingual AI assistant for health assessments.", "en"))
+
+# --- Main Page Content ---
+
+# Create columns for the main content
+col1, col2 = st.columns([1, 1.5])
+
+# Column 1: Symptom Checker
+with col1:
+    st.subheader("Symptom-Based Analysis")
+    name = st.text_input(translate_text("Enter your name", "en"))
+    
+    symptom_options_translated = [translate_text(sym.replace('_', ' '), "en") for sym in all_symptoms]
+    user_symptoms_translated = st.multiselect(translate_text("Select your symptoms", "en"), symptom_options_translated)
+    
+    days = st.number_input(translate_text("How many days have you had symptoms?", "en"), min_value=1, max_value=30, value=3)
+
+    if st.button(translate_text("🔎 Submit Symptoms", "en")):
+        if user_symptoms_translated:
+            translated_to_original = {translate_text(sym.replace('_', ' '), "en"): sym for sym in all_symptoms}
+            all_user_symptoms_original = [translated_to_original[s] for s in user_symptoms_translated]
+
+            matching_diseases = training_data.copy()
+            matching_diseases["match_count"] = matching_diseases.iloc[:, 1:].apply(
+                lambda row: sum(row[s] for s in all_user_symptoms_original if s in row.index), axis=1)
+            predicted_disease = matching_diseases.sort_values(by="match_count", ascending=False).iloc[0]["prognosis"]
+            st.session_state["predicted_disease"] = predicted_disease
+
+            st.success(translate_text(f"Based on your symptoms, you might have: **{predicted_disease}**", "en"))
+            
+            description = symptom_desc[symptom_desc["prognosis"] == predicted_disease]["Description"].values
+            if len(description) > 0:
+                st.info(translate_text(description[0], "en"))
+
+            precautions_data = symptom_precaution[symptom_precaution["Disease"] == predicted_disease].iloc[:, 1:].values.flatten()
+            if len(precautions_data) > 0:
+                st.write(f"### {translate_text('🛡️ Precautions', "en")}")
+                for i, precaution in enumerate(precautions_data):
+                    st.write(f"{i + 1}. {translate_text(precaution, "en")}")
         else:
-            st.error(lang_dict["api_error"])
+            st.warning(translate_text("Please select at least one symptom.", "en"))
+
+# Column 2: Chatbot & Image Uploader
+with col2:
+    st.subheader("AI Chatbot & Image Analysis")
+    
+    # Chatbot Section
+    st.markdown("---")
+    st.markdown(f"**💬 Ask a Question**")
+    for role, message in st.session_state.chat_history:
+        with st.chat_message(role):
+            st.markdown(message)
+    
+    user_question = st.chat_input("Type your question here...")
+    if user_question:
+        st.session_state.chat_history.append(("user", user_question))
+        with st.chat_message("user"):
+            st.markdown(user_question)
+        
+        with st.spinner("Thinking..."):
+            response = get_chatbot_response(user_question, st.session_state["predicted_disease"], "en")
+            st.session_state.chat_history.append(("assistant", response))
+            with st.chat_message("assistant"):
+                st.markdown(response)
+
+    st.markdown("---")
+    st.markdown(f"**📸 Upload Skin Image for Disease Detection**")
+    uploaded_file = st.file_uploader("Upload an image of the skin disease", type=["jpg", "jpeg", "png"])
+    
+    if uploaded_file is not None:
+        st.image(uploaded_file, caption="Uploaded Skin Image", use_column_width=True)
+        with st.spinner("🔄 Analyzing image using Hugging Face model..."):
+            image_bytes = uploaded_file.read()
+            headers = {
+                "Authorization": f"Bearer {HF_API_KEY}",
+                "Content-Type": "application/octet-stream"
+            }
+            try:
+                response = requests.post(HF_API_URL, headers=headers, data=image_bytes)
+                response.raise_for_status()
+                predictions = response.json()
+                if isinstance(predictions, list) and len(predictions) > 0:
+                    top_prediction = predictions[0]
+                    predicted_label = top_prediction["label"]
+                    confidence = round(top_prediction["score"] * 100, 2)
+                    st.success(f"🤖 AI Prediction: **{predicted_label}** ({confidence}% confidence)")
+                    
+                    precautions = symptom_precaution[symptom_precaution["Disease"].str.lower() == predicted_label.lower()].iloc[:, 1:].values.flatten()
+                    if len(precautions) > 0:
+                        st.markdown(f"### 🛡️ Suggested Precautions for this Condition")
+                        for i, precaution in enumerate(precautions):
+                            st.write(f"{i + 1}. {precaution}")
+                    else:
+                        st.info("No specific precautions found for this disease.")
+                else:
+                    st.error("⚠️ Could not detect any condition from the image.")
+            except requests.exceptions.RequestException as e:
+                st.error(f"❌ Failed to connect to Hugging Face API. Status Code: {e.response.status_code if e.response else 'N/A'}")
+                st.write("API Response:")
+                st.write(e.response.text if e.response else "No response body.")
