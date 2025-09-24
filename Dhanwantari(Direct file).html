@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dhanwantari - Health Assessments</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* New Font from Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+        /* General Body and Layout */
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            background-color: #f0f4f8; /* A slightly cooler, more modern grey */
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Navbar */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px; /* Increased padding */
+            background-color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 700; /* Bolder font weight */
+            color: #1a73e8; /* Vibrant blue for a modern tech feel */
+            letter-spacing: -0.5px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #555;
+            margin-left: 30px; /* Increased spacing */
+            font-weight: 500;
+            transition: color 0.3s ease, transform 0.2s ease;
+            position: relative;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: #1a73e8;
+            transform: translateY(-2px);
+        }
+        
+        /* Underline effect on hover/active */
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            bottom: -5px;
+            left: 0;
+            background-color: #1a73e8;
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .nav-links a.active::after,
+        .nav-links a:hover::after {
+            transform: scaleX(1);
+        }
+
+        .swa-link {
+            background-color: #1a73e8;
+            color: #fff !important;
+            padding: 10px 20px;
+            border-radius: 30px; /* More rounded */
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 10px rgba(26, 115, 232, 0.3);
+        }
+
+        .swa-link:hover {
+            background-color: #145cb7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(26, 115, 232, 0.4);
+        }
+
+        /* Main Content Sections */
+        .content-section {
+            background-color: #fff;
+            padding: 50px; /* Increased padding */
+            border-radius: 16px; /* More rounded corners */
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .content-section h2 {
+            color: #1a73e8;
+            font-size: 2.5rem; /* Larger heading */
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+
+        .content-section p {
+            color: #555;
+            font-size: 1.1rem;
+            margin-bottom: 35px;
+        }
+
+        .cta-options {
+            display: flex;
+            justify-content: center;
+            gap: 40px; /* Increased gap */
+            flex-wrap: wrap;
+        }
+
+        .option-card {
+            background-color: #fafbfd; /* Lighter background */
+            border: 1px solid #e0e6ed;
+            border-radius: 12px;
+            padding: 40px;
+            width: 280px; /* Slightly wider */
+            text-align: center;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            cursor: pointer;
+        }
+
+        .option-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .option-card i {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            color: #1a73e8;
+            transition: transform 0.3s ease;
+        }
+        
+        .option-card:hover i {
+            transform: scale(1.1);
+        }
+
+        .whatsapp-icon { color: #25d366; }
+        .sms-icon { color: #1e90ff; }
+
+        .option-card h3 {
+            color: #333;
+            font-size: 1.6rem;
+            margin-bottom: 10px;
+        }
+
+        .option-card p {
+            color: #777;
+            font-size: 1rem;
+            min-height: 40px;
+        }
+
+        .option-btn {
+            display: inline-block;
+            padding: 12px 25px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 25px;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+        }
+
+        .whatsapp-btn {
+            background-color: #25d366;
+            color: #fff;
+        }
+
+        .whatsapp-btn:hover {
+            background-color: #128c7e;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(37, 211, 102, 0.4);
+        }
+
+        .sms-btn {
+            background-color: #1e90ff;
+            color: #fff;
+        }
+
+        .sms-btn:hover {
+            background-color: #0f79e5;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(30, 144, 255, 0.4);
+        }
+
+        /* Alert Section Styles */
+        .alert-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 800px;
+            width: 90%;
+            padding: 20px;
+        }
+
+        .alert-box {
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .alert-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .alert-box .icon {
+            font-size: 3rem;
+            color: #1a73e8;
+            animation: bounceIn 0.8s ease-out;
+        }
+
+        .alert-box h1 {
+            color: #1a73e8;
+            font-size: 2rem;
+            margin: 0;
+        }
+
+        .alert-box p {
+            font-size: 1.1rem;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .alert-link {
+            display: inline-block;
+            color: #1a73e8;
+            font-weight: 600;
+            text-decoration: none;
+            margin-top: 15px;
+            transition: color 0.3s ease;
+        }
+
+        .alert-link:hover {
+            color: #145cb7;
+        }
+
+        .back-button-container {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .back-button {
+            display: inline-block;
+            background-color: #1a73e8;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 10px rgba(26, 115, 232, 0.3);
+        }
+
+        .back-button:hover {
+            background-color: #145cb7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(26, 115, 232, 0.4);
+        }
+
+        /* About Section Styles */
+        #about-section {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .about-section h2 {
+            font-size: 2.8rem;
+            margin-bottom: 25px;
+        }
+
+        .about-section p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        
+        .contact-section {
+            margin-top: 40px;
+            border-top: 1px solid #e0e6ed;
+            padding-top: 25px;
+            text-align: center;
+        }
+
+        .contact-section h3 {
+            color: #1a73e8;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+
+        .contact-options {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            flex-wrap: wrap;
+        }
+
+        .contact-options a {
+            display: inline-block;
+            color: #fff;
+            background-color: #1a73e8;
+            padding: 15px 30px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 10px rgba(26, 115, 232, 0.3);
+        }
+
+        .contact-options a:hover {
+            background-color: #145cb7;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(26, 115, 232, 0.4);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 1; }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); }
+        }
+
+        @media (max-width: 600px) {
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px 15px;
+            }
+            .nav-links {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .nav-links a {
+                margin: 5px 10px;
+            }
+            .content-section {
+                padding: 30px;
+            }
+            .cta-options, .contact-options {
+                flex-direction: column;
+                align-items: center;
+                gap: 15px;
+            }
+            .alert-container {
+                padding: 10px;
+            }
+            .alert-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            .alert-box .icon {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="navbar">
+            <div class="logo">Dhanwantari</div>
+            <nav class="nav-links">
+                <a href="#" class="home-link">Home</a>
+                <a href="#" id="about-btn">About</a>
+                <a href="http://localhost:8501/">Health Analysis</a>
+                <a href="#" id="live-updates-btn">Live Updates</a>
+                <a href="#" class="swa-link">Dhanwantari AI</a>
+            </nav>
+        </header>
+
+        <main class="content">
+            <div class="content-section" id="home-section">
+                <h2>Access Dhanwantari AI</h2>
+                <p>Choose your preferred method to start your health assessment.</p>
+                <div class="cta-options">
+                    <div class="option-card">
+                        <i class="fab fa-whatsapp whatsapp-icon"></i>
+                        <h3>WhatsApp</h3>
+                        <p>Initiate a conversation with Dhanwantari AI directly on WhatsApp.</p>
+                        <a href="https://wa.me/yourwhatsappnumber" class="option-btn whatsapp-btn">Start on WhatsApp</a>
+                    </div>
+                    <div class="option-card">
+                        <i class="fas fa-sms sms-icon"></i>
+                        <h3>SMS</h3>
+                        <p>Send a quick text message to receive health assessments via SMS.</p>
+                        <a href="sms:yoursmsnumber" class="option-btn sms-btn">Start via SMS</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="content-section" id="about-section" style="display: none;">
+                <h2>About Dhanwantari</h2>
+                <p>Dhanwantari is a **multilingual AI chatbot** designed to empower rural and semi-urban communities with vital health information. Our mission is to bridge the healthcare knowledge gap by providing accessible, reliable, and easy-to-understand guidance on preventive care, disease symptoms, and essential vaccination schedules.</p>
+                <p>The chatbot seamlessly integrates with **government health databases**, enabling it to deliver real-time, localized alerts about disease outbreaks and public health advisories. We believe that by providing this critical information directly to people via platforms they already use, we can significantly improve community health outcomes and foster a more proactive approach to wellness.</p>
+                <div class="contact-section">
+                    <h3>Contact Us</h3>
+                    <div class="contact-options">
+                        <a href="https://mail.google.com/mail/?view=cm&fs=1&to=omjite92@gmail.com" target="_blank">
+                            <i class="fas fa-envelope"></i> omjite92@gmail.com
+                        </a>
+                        <a href="https://mail.google.com/mail/?view=cm&fs=1&to=dukarerachita@gmail.com" target="_blank">
+                            <i class="fas fa-envelope"></i> dukarerachita@gmail.com
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="container" id="alert-container" style="display: none;">
+        <div class="alert-box">
+            <div class="alert-header">
+                <i class="fas fa-mosquito icon"></i>
+                <h1>Dengue Fever Awareness</h1>
+            </div>
+            <p><strong>Dengue fever is a viral infection transmitted by mosquitoes.</strong> Symptoms often include a high fever, severe headache, and joint pain. To prevent it, use repellents and eliminate stagnant water.</p>
+            <a href="https://www.who.int/news-room/fact-sheets/detail/dengue-and-severe-dengue" class="alert-link" target="_blank">Learn More from WHO</a>
+        </div>
+        <div class="alert-box">
+            <div class="alert-header">
+                <i class="fas fa-viruses icon"></i>
+                <h1>Respiratory Virus Season</h1>
+            </div>
+            <p><strong>Respiratory viruses spread easily through the air.</strong> Protect yourself by practicing good hygiene, such as frequent handwashing and avoiding touching your face. Getting a flu vaccine is highly recommended.</p>
+            <a href="https://www.cdc.gov/respiratory-viruses/index.html" class="alert-link" target="_blank">Learn More from CDC</a>
+        </div>
+        <div class="back-button-container">
+            <a href="#" class="back-button" id="back-to-home-btn">Go Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        const navLinks = document.querySelectorAll('.nav-links a');
+        const homeSection = document.getElementById('home-section');
+        const aboutSection = document.getElementById('about-section');
+        const alertSection = document.getElementById('alert-container');
+        const liveUpdatesBtn = document.getElementById('live-updates-btn');
+        const aboutBtn = document.getElementById('about-btn');
+        const backToHomeBtn = document.getElementById('back-to-home-btn');
+        const homeLink = document.querySelector('.home-link');
+        
+        const healthAnalysisLink = document.querySelector('a[href="http://localhost:8501/"]');
+
+        function setActiveLink(clickedLink) {
+            navLinks.forEach(link => link.classList.remove('active'));
+            if (clickedLink) {
+                clickedLink.classList.add('active');
+            }
+        }
+        
+        function showSection(sectionToShow) {
+            const allSections = [homeSection, aboutSection, alertSection];
+            allSections.forEach(section => {
+                section.style.display = 'none';
+            });
+            sectionToShow.style.display = 'block';
+
+            if (sectionToShow === alertSection) {
+                document.body.classList.add('alert-body');
+            } else {
+                document.body.classList.remove('alert-body');
+            }
+        }
+
+        homeLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection(homeSection);
+            setActiveLink(homeLink);
+        });
+
+        aboutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection(aboutSection);
+            setActiveLink(aboutBtn);
+        });
+
+        liveUpdatesBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection(alertSection);
+            setActiveLink(liveUpdatesBtn);
+        });
+
+        backToHomeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSection(homeSection);
+            setActiveLink(homeLink);
+        });
+        
+        healthAnalysisLink.addEventListener('click', () => {
+             // This event listener prevents default behavior, but we want it to redirect
+             // so we don't need to add a preventDefault here. It will just follow the href.
+        });
+
+        showSection(homeSection);
+        setActiveLink(homeLink);
+    </script>
+</body>
+</html>

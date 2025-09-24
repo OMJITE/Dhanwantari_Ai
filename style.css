@@ -1,0 +1,231 @@
+/* General Body and Container Styles */
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #f0f2f5; /* Light grey background */
+    color: #333; /* Dark grey text */
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Navbar Styles */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+    background-color: #ffffff; /* White navbar */
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    color: #008080; /* Teal for logo */
+}
+
+.nav-links a {
+    color: #555;
+    text-decoration: none;
+    margin-left: 30px;
+    font-size: 16px;
+    transition: color 0.3s ease;
+}
+
+.nav-links a.active {
+    color: #008080; /* Teal for active link */
+}
+
+.swa-link {
+    background-color: #008080; /* Teal for the button */
+    padding: 8px 15px;
+    border-radius: 20px;
+    color: white;
+    font-weight: bold;
+    margin-left: 40px;
+}
+
+.swa-link:hover {
+    background-color: #006666; /* Darker teal on hover */
+}
+
+/* Main Content Area */
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center; /* Center content vertically and horizontally */
+    justify-content: center;
+    text-align: center;
+}
+
+/* CTA Section Styles (newly added) */
+.cta-section {
+    background-color: #ffffff;
+    padding: 40px 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    max-width: 800px;
+    width: 100%;
+    margin-top: 50px;
+}
+
+.cta-section h2 {
+    font-size: 2rem;
+    color: #008080;
+    margin-bottom: 10px;
+}
+
+.cta-section p {
+    font-size: 1rem;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.cta-options {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+}
+
+.option-card {
+    background-color: #f8f9fa;
+    border: 1px solid #e0e6e9;
+    border-radius: 10px;
+    padding: 30px;
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.option-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.option-card i {
+    font-size: 3rem;
+    margin-bottom: 20px;
+}
+
+.whatsapp-icon {
+    color: #25d366; /* WhatsApp green */
+}
+
+.sms-icon {
+    color: #008080; /* Teal */
+}
+
+.option-card h3 {
+    font-size: 1.5rem;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.option-card p {
+    font-size: 0.95rem;
+    color: #777;
+    margin-bottom: 20px;
+    flex-grow: 1;
+}
+
+.option-btn {
+    display: inline-block;
+    padding: 12px 25px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 15px;
+    transition: background-color 0.3s ease;
+}
+
+.whatsapp-btn {
+    background-color: #25d366;
+    color: white;
+}
+
+.whatsapp-btn:hover {
+    background-color: #128c7e;
+}
+
+.sms-btn {
+    background-color: #008080;
+    color: white;
+}
+
+.sms-btn:hover {
+    background-color: #006666;
+}
+
+/* Activate Windows Message */
+.activate-windows {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: rgba(255, 255, 255, 0.8);
+    color: #333;
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-size: 13px;
+    line-height: 1.4;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.activate-windows p:first-child {
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.activate-windows p {
+    margin: 0;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .navbar {
+        flex-direction: column;
+        gap: 15px;
+        padding: 15px;
+    }
+
+    .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 10px;
+    }
+
+    .nav-links a {
+        margin: 5px 10px;
+    }
+
+    .swa-link {
+        margin-left: 10px;
+    }
+
+    .cta-options {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .option-card {
+        width: 100%;
+        max-width: 350px;
+    }
+}
